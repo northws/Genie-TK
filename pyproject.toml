@@ -1,0 +1,77 @@
+[project]
+name = "genie-tk"
+version = "0.1.0"
+description = "ThunderKittens-accelerated Triangle operations for protein structure prediction"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Genie-TK Contributors"},
+]
+requires-python = ">=3.10"
+keywords = [
+    "protein structure prediction",
+    "alphafold",
+    "cuda",
+    "gpu",
+    "deep learning",
+    "thunderkittens",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: CUDA",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "einops>=0.6.0",
+    "ninja",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-benchmark",
+    "black",
+    "isort",
+    "mypy",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "myst-parser",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/genie-tk"
+Documentation = "https://genie-tk.readthedocs.io"
+Repository = "https://github.com/your-org/genie-tk"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "torch>=2.0.0", "ninja"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"genie_tk" = ["*.cuh", "*.cu"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short"
