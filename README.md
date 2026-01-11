@@ -61,10 +61,10 @@ The Outgoing update propagates information from residues $i$ and $j$ to their co
 
 $$
 \begin{aligned}
-\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) \\[6pt]
-a_{ik} &= \sigma\left(W^{a,g} \bar{z}_{ik} + b^{a,g}\right) \odot \left(W^{a,p} \bar{z}_{ik} + b^{a,p}\right) \\[6pt]
-b_{jk} &= \sigma\left(W^{b,g} \bar{z}_{jk} + b^{b,g}\right) \odot \left(W^{b,p} \bar{z}_{jk} + b^{b,p}\right) \\[6pt]
-g_{ij} &= \sigma\left(W^{g} \bar{z}_{ij} + b^{g}\right) \\[6pt]
+\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) 
+a_{ik} &= \sigma\left(W^{a,g} \bar{z}_{ik} + b^{a,g}\right) \odot \left(W^{a,p} \bar{z}_{ik} + b^{a,p}\right) 
+b_{jk} &= \sigma\left(W^{b,g} \bar{z}_{jk} + b^{b,g}\right) \odot \left(W^{b,p} \bar{z}_{jk} + b^{b,p}\right) 
+g_{ij} &= \sigma\left(W^{g} \bar{z}_{ij} + b^{g}\right) 
 z_{ij} &\leftarrow z_{ij} + g_{ij} \odot W^{z}\,\text{LayerNorm}\left(\sum_{k=1}^{N} a_{ik} \odot b_{jk}\right)
 \end{aligned}
 $$
@@ -104,10 +104,10 @@ The Incoming update propagates information from common neighbors $k$ to residue 
 
 $$
 \begin{aligned}
-\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) \\[6pt]
-a_{ki} &= \sigma\left(W^{a,g} \bar{z}_{ki} + b^{a,g}\right) \odot \left(W^{a,p} \bar{z}_{ki} + b^{a,p}\right) \\[6pt]
-b_{kj} &= \sigma\left(W^{b,g} \bar{z}_{kj} + b^{b,g}\right) \odot \left(W^{b,p} \bar{z}_{kj} + b^{b,p}\right) \\[6pt]
-g_{ij} &= \sigma\left(W^{g} \bar{z}_{ij} + b^{g}\right) \\[6pt]
+\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) 
+a_{ki} &= \sigma\left(W^{a,g} \bar{z}_{ki} + b^{a,g}\right) \odot \left(W^{a,p} \bar{z}_{ki} + b^{a,p}\right) 
+b_{kj} &= \sigma\left(W^{b,g} \bar{z}_{kj} + b^{b,g}\right) \odot \left(W^{b,p} \bar{z}_{kj} + b^{b,p}\right) 
+g_{ij} &= \sigma\left(W^{g} \bar{z}_{ij} + b^{g}\right) 
 z_{ij} &\leftarrow z_{ij} + g_{ij} \odot W^{z}\,\text{LayerNorm}\left(\sum_{k=1}^{N} a_{ki} \odot b_{kj}\right)
 \end{aligned}
 $$
@@ -143,11 +143,11 @@ For each row $i$ (fixed starting node), attention is computed along the $j$ dime
 
 $$
 \begin{aligned}
-\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) \\[6pt]
-q_{ij}^h &= W_Q^h \bar{z}_{ij}, \quad k_{ij}^h = W_K^h \bar{z}_{ij}, \quad v_{ij}^h = W_V^h \bar{z}_{ij} \\[6pt]
-b_{ij}^h &= W_b^h \bar{z}_{ij} \quad \text{(triangle bias)} \\[6pt]
-\alpha_{ijk}^h &= \text{softmax}_k\left(\frac{q_{ij}^h \cdot (k_{ik}^h)^\top}{\sqrt{d_h}} + b_{ik}^h\right) \\[6pt]
-o_{ij}^h &= \sum_{k=1}^{N} \alpha_{ijk}^h \cdot v_{ik}^h \\[6pt]
+\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) 
+q_{ij}^h &= W_Q^h \bar{z}_{ij}, \quad k_{ij}^h = W_K^h \bar{z}_{ij}, \quad v_{ij}^h = W_V^h \bar{z}_{ij} 
+b_{ij}^h &= W_b^h \bar{z}_{ij} \quad \text{(triangle bias)} 
+\alpha_{ijk}^h &= \text{softmax}_k\left(\frac{q_{ij}^h \cdot (k_{ik}^h)^\top}{\sqrt{d_h}} + b_{ik}^h\right) 
+o_{ij}^h &= \sum_{k=1}^{N} \alpha_{ijk}^h \cdot v_{ik}^h 
 z_{ij} &\leftarrow z_{ij} + W_O \,\text{Concat}\left(o_{ij}^1, \ldots, o_{ij}^H\right)
 \end{aligned}
 $$
@@ -198,11 +198,11 @@ For each column $j$ (fixed ending node), attention is computed along the $i$ dim
 
 $$
 \begin{aligned}
-\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) \\[6pt]
-q_{ij}^h &= W_Q^h \bar{z}_{ij}, \quad k_{ij}^h = W_K^h \bar{z}_{ij}, \quad v_{ij}^h = W_V^h \bar{z}_{ij} \\[6pt]
-b_{ij}^h &= W_b^h \bar{z}_{ij} \\[6pt]
-\alpha_{ikj}^h &= \text{softmax}_k\left(\frac{q_{ij}^h \cdot (k_{kj}^h)^\top}{\sqrt{d_h}} + b_{kj}^h\right) \\[6pt]
-o_{ij}^h &= \sum_{k=1}^{N} \alpha_{ikj}^h \cdot v_{kj}^h \\[6pt]
+\bar{z}_{ij} &= \text{LayerNorm}(z_{ij}) 
+q_{ij}^h &= W_Q^h \bar{z}_{ij}, \quad k_{ij}^h = W_K^h \bar{z}_{ij}, \quad v_{ij}^h = W_V^h \bar{z}_{ij} 
+b_{ij}^h &= W_b^h \bar{z}_{ij} 
+\alpha_{ikj}^h &= \text{softmax}_k\left(\frac{q_{ij}^h \cdot (k_{kj}^h)^\top}{\sqrt{d_h}} + b_{kj}^h\right) 
+o_{ij}^h &= \sum_{k=1}^{N} \alpha_{ikj}^h \cdot v_{kj}^h 
 z_{ij} &\leftarrow z_{ij} + W_O \,\text{Concat}\left(o_{ij}^1, \ldots, o_{ij}^H\right)
 \end{aligned}
 $$
