@@ -12,9 +12,15 @@
  * - Tiled computation to fit in shared memory
  * - Fused LayerNorm and gating operations
  * 
+ * Supported architectures:
+ * - Hopper (H100): KITTENS_HOPPER
+ * - Blackwell (B200): KITTENS_HOPPER + KITTENS_BLACKWELL
+ * - Ampere (A100): KITTENS_A100
+ * - Ada Lovelace (RTX 4090): KITTENS_4090
+ * 
  * References:
  * - AlphaFold2: Jumper et al., Nature 2021
- * - ThunderKittens: Spector et al., HazyResearch 2024
+ * - ThunderKittens 3.0: Spector et al., HazyResearch 2024-2025
  * 
  * License: MIT
  */
@@ -97,8 +103,9 @@ __global__ void triangle_outgoing_kernel(
     extern __shared__ int __shm[];
     tma_swizzle_allocator al((int*)&__shm[0]);
     
-    const int warp_id = kittens::warpid();
-    const int lane_id = kittens::laneid();
+    // ThunderKittens 3.0: warp scope must be explicit
+    const int warp_id = kittens::warp::warpid();
+    const int lane_id = kittens::warp::laneid();
     const int i_tile = blockIdx.x;      // Output row tile
     const int j_tile = blockIdx.y;      // Output col tile
     const int batch = blockIdx.z;       // Batch index
@@ -122,8 +129,8 @@ __global__ void triangle_outgoing_kernel(
     if (threadIdx.x == 0) {
         #pragma unroll
         for (int s = 0; s < STAGES; s++) {
-            init_semaphore(a_sem[s], 0, 1);
-            init_semaphore(b_sem[s], 0, 1);
+            kittens::warp::init_semaphore(a_sem[s], 0, 1);
+            kittens::warp::init_semaphore(b_sem[s], 0, 1);
         }
     }
     __syncthreads();
@@ -134,13 +141,13 @@ __global__ void triangle_outgoing_kernel(
     if (threadIdx.x == 0 && k_tiles > 0) {
         // a_ik: row i_tile, col 0 (k dimension)
         // For outgoing: we need a[i, k, :] so index is [batch, i_tile, 0, :]
-        tma::expect_bytes(a_sem[0], sizeof(smem_tile_bf16));
-        tma::expect_bytes(b_sem[0], sizeof(smem_tile_bf16));
+        kittens::warp::tma::expect_bytes(a_sem[0], sizeof(smem_tile_bf16));
+        kittens::warp::tma::expect_bytes(b_sem[0], sizeof(smem_tile_bf16));
         
         // Load a tile: a[batch, i_start:i_start+TILE_M, 0:TILE_K, :]
         // Load b tile: b[batch, j_start:j_start+TILE_N, 0:TILE_K, :]
-        tma::load_async(a_smem[0], g.a, {batch, i_tile, 0, 0}, a_sem[0]);
-        tma::load_async(b_smem[0], g.b, {batch, j_tile, 0, 0}, b_sem[0]);
+        kittens::warp::tma::load_async(a_smem[0], g.a, {batch, i_tile, 0, 0}, a_sem[0]);
+        kittens::warp::tma::load_async(b_smem[0], g.b, {batch, j_tile, 0, 0}, b_sem[0]);
     }
     
     // Main K-loop with double buffering
@@ -150,15 +157,15 @@ __global__ void triangle_outgoing_kernel(
         
         // Prefetch next tiles
         if (k + 1 < k_tiles && threadIdx.x == 0) {
-            tma::expect_bytes(a_sem[next], sizeof(smem_tile_bf16));
-            tma::expect_bytes(b_sem[next], sizeof(smem_tile_bf16));
-            tma::load_async(a_smem[next], g.a, {batch, i_tile, k + 1, 0}, a_sem[next]);
-            tma::load_async(b_smem[next], g.b, {batch, j_tile, k + 1, 0}, b_sem[next]);
+            kittens::warp::tma::expect_bytes(a_sem[next], sizeof(smem_tile_bf16));
+            kittens::warp::tma::expect_bytes(b_sem[next], sizeof(smem_tile_bf16));
+            kittens::warp::tma::load_async(a_smem[next], g.a, {batch, i_tile, k + 1, 0}, a_sem[next]);
+            kittens::warp::tma::load_async(b_smem[next], g.b, {batch, j_tile, k + 1, 0}, b_sem[next]);
         }
         
         // Wait for current tiles
-        wait(a_sem[curr], k / STAGES);
-        wait(b_sem[curr], k / STAGES);
+        kittens::warp::wait(a_sem[curr], k / STAGES);
+        kittens::warp::wait(b_sem[curr], k / STAGES);
         __syncthreads();
         
         // Compute: acc += a @ b^T
@@ -177,8 +184,8 @@ __global__ void triangle_outgoing_kernel(
     
     // Write back to global memory
     if (threadIdx.x == 0) {
-        tma::store_async(g.out, out_smem, {batch, i_tile, j_tile, 0});
-        tma::store_async_commit();
+        kittens::warp::tma::store_async(g.out, out_smem, {batch, i_tile, j_tile, 0});
+        kittens::warp::tma::store_async_commit();
     }
 }
 
@@ -234,8 +241,8 @@ __global__ void triangle_incoming_kernel(
     if (threadIdx.x == 0) {
         #pragma unroll
         for (int s = 0; s < STAGES; s++) {
-            init_semaphore(a_sem[s], 0, 1);
-            init_semaphore(b_sem[s], 0, 1);
+            kittens::warp::init_semaphore(a_sem[s], 0, 1);
+            kittens::warp::init_semaphore(b_sem[s], 0, 1);
         }
     }
     __syncthreads();
@@ -245,10 +252,10 @@ __global__ void triangle_incoming_kernel(
     // Prefetch first tiles
     // For incoming: need a[k, i, :] and b[k, j, :]
     if (threadIdx.x == 0 && k_tiles > 0) {
-        tma::expect_bytes(a_sem[0], sizeof(smem_tile_bf16));
-        tma::expect_bytes(b_sem[0], sizeof(smem_tile_bf16));
-        tma::load_async(a_smem[0], g.a, {batch, 0, i_tile, 0}, a_sem[0]);
-        tma::load_async(b_smem[0], g.b, {batch, 0, j_tile, 0}, b_sem[0]);
+        kittens::warp::tma::expect_bytes(a_sem[0], sizeof(smem_tile_bf16));
+        kittens::warp::tma::expect_bytes(b_sem[0], sizeof(smem_tile_bf16));
+        kittens::warp::tma::load_async(a_smem[0], g.a, {batch, 0, i_tile, 0}, a_sem[0]);
+        kittens::warp::tma::load_async(b_smem[0], g.b, {batch, 0, j_tile, 0}, b_sem[0]);
     }
     
     for (int k = 0; k < k_tiles; k++) {
@@ -256,14 +263,14 @@ __global__ void triangle_incoming_kernel(
         int next = (k + 1) % STAGES;
         
         if (k + 1 < k_tiles && threadIdx.x == 0) {
-            tma::expect_bytes(a_sem[next], sizeof(smem_tile_bf16));
-            tma::expect_bytes(b_sem[next], sizeof(smem_tile_bf16));
-            tma::load_async(a_smem[next], g.a, {batch, k + 1, i_tile, 0}, a_sem[next]);
-            tma::load_async(b_smem[next], g.b, {batch, k + 1, j_tile, 0}, b_sem[next]);
+            kittens::warp::tma::expect_bytes(a_sem[next], sizeof(smem_tile_bf16));
+            kittens::warp::tma::expect_bytes(b_sem[next], sizeof(smem_tile_bf16));
+            kittens::warp::tma::load_async(a_smem[next], g.a, {batch, k + 1, i_tile, 0}, a_sem[next]);
+            kittens::warp::tma::load_async(b_smem[next], g.b, {batch, k + 1, j_tile, 0}, b_sem[next]);
         }
         
-        wait(a_sem[curr], k / STAGES);
-        wait(b_sem[curr], k / STAGES);
+        kittens::warp::wait(a_sem[curr], k / STAGES);
+        kittens::warp::wait(b_sem[curr], k / STAGES);
         __syncthreads();
         
         // Compute: acc += a^T @ b
@@ -280,8 +287,8 @@ __global__ void triangle_incoming_kernel(
     __syncthreads();
     
     if (threadIdx.x == 0) {
-        tma::store_async(g.out, out_smem, {batch, i_tile, j_tile, 0});
-        tma::store_async_commit();
+        kittens::warp::tma::store_async(g.out, out_smem, {batch, i_tile, j_tile, 0});
+        kittens::warp::tma::store_async_commit();
     }
 }
 

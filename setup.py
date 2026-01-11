@@ -23,12 +23,20 @@ def detect_gpu_target():#Detect GPU architecture.
             capture_output=True, text=True
         )
         gpu_name = result.stdout.strip().lower()
-        if 'h100' in gpu_name or 'h200' in gpu_name:
+        # Blackwell architecture - Data Center (B100, B200)
+        if 'b200' in gpu_name or 'b100' in gpu_name:
+            return 'b200', 'sm_100a'
+        # Blackwell architecture - Consumer (RTX 50 series)
+        elif '5090' in gpu_name or '5080' in gpu_name or '5070' in gpu_name:
+            return 'b200', 'sm_100a'  # RTX 50系列使用相同的Blackwell架构
+        elif 'h100' in gpu_name or 'h200' in gpu_name:
             return 'h100', 'sm_90a'
         elif 'a100' in gpu_name:
             return 'a100', 'sm_80'
-        elif '4090' in gpu_name or '4080' in gpu_name or '3090' in gpu_name:
-            return '4090', 'sm_89'
+        elif '4090' in gpu_name or '4080' in gpu_name or '4070' in gpu_name or '4060' in gpu_name:
+            return '4090', 'sm_89'  # RTX 40系列 Ada Lovelace架构
+        elif '3090' in gpu_name or '3080' in gpu_name or '3070' in gpu_name:
+            return '3090', 'sm_86'  # RTX 30系列 Ampere架构
         else:
             print(f"Unknown GPU: {gpu_name}, defaulting to sm_80")
             return 'a100', 'sm_80'
@@ -79,12 +87,19 @@ CUDA_FLAGS = [
 ]
 
 # Add target-specific flags
-if TARGET == 'h100':
+if TARGET == 'b200':
+    # Blackwell architecture (B100/B200, RTX 5090/5080/5070)
+    # Requires both HOPPER and BLACKWELL flags
+    CUDA_FLAGS.append('-DKITTENS_HOPPER')
+    CUDA_FLAGS.append('-DKITTENS_BLACKWELL')
+elif TARGET == 'h100':
     CUDA_FLAGS.append('-DKITTENS_HOPPER')
 elif TARGET == 'a100':
     CUDA_FLAGS.append('-DKITTENS_A100')
 elif TARGET == '4090':
-    CUDA_FLAGS.append('-DKITTENS_4090')
+    CUDA_FLAGS.append('-DKITTENS_4090')  # Ada Lovelace
+elif TARGET == '3090':
+    CUDA_FLAGS.append('-DKITTENS_AMPERE')  # Ampere consumer
 
 # Add torch includes
 CUDA_FLAGS.extend(TORCH_INCLUDE.split())

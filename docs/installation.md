@@ -2,25 +2,40 @@
 
 ## 系统要求
 
-- CUDA 12.3+ (推荐 CUDA 12.6)
+- CUDA 12.3+ (推荐 CUDA 12.6，Blackwell 架构需要 CUDA 12.8+)
 - GCC 11+ (支持 C++20)
 - Python 3.10+
 - PyTorch 2.0+
-- H100 / A100 / RTX 4090 GPU
+- 支持的 GPU:
+  - **Blackwell (数据中心)**: B100, B200 (sm_100a) - 需要 ThunderKittens 3.0
+  - **Blackwell (消费级)**: RTX 5090, RTX 5080, RTX 5070 (sm_100a)
+  - **Hopper**: H100, H200 (sm_90a)
+  - **Ampere (数据中心)**: A100 (sm_80)
+  - **Ada Lovelace**: RTX 4090, RTX 4080, RTX 4070, RTX 4060 (sm_89)
+  - **Ampere (消费级)**: RTX 3090, RTX 3080, RTX 3070 (sm_86)
+
+## ThunderKittens 3.0 更新
+
+Genie-TK 现已支持 ThunderKittens 3.0，主要变更包括：
+- 支持 Blackwell 架构 (B100/B200) GPU
+- Warp scope 现在需要显式声明为 `kittens::warp::`
+- 代码重构和 Megakernels 支持
 
 ## 快速安装
 
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/your-org/genie-tk.git
+git clone https://github.com/northws/genie-tk.git
 cd genie-tk
 ```
 
 ### 2. 设置环境
 
+#### Linux / macOS
 ```bash
 # 设置 ThunderKittens 路径
+git clone https://github.com/HazyResearch/ThunderKittens.git
 export THUNDERKITTENS_ROOT=/path/to/ThunderKittens
 
 # 加载环境变量
@@ -57,6 +72,25 @@ print(genie_tk.get_device_info())
 ```
 
 ## 常见问题
+
+### GPU 架构选择
+
+Genie-TK 会自动检测 GPU 并选择正确的编译目标：
+
+| GPU | 编译标志 | 架构 |
+|-----|---------|------|
+| B200/B100 | `-DKITTENS_HOPPER -DKITTENS_BLACKWELL` | sm_100a |
+| RTX 5090/5080/5070 | `-DKITTENS_HOPPER -DKITTENS_BLACKWELL` | sm_100a |
+| H100/H200 | `-DKITTENS_HOPPER` | sm_90a |
+| A100 | `-DKITTENS_A100` | sm_80 |
+| RTX 4090/4080/4070/4060 | `-DKITTENS_4090` | sm_89 |
+| RTX 3090/3080/3070 | `-DKITTENS_AMPERE` | sm_86 |
+
+手动指定目标架构：
+```python
+# 编辑 config.py
+target = 'b200'  # 或 'h100', 'a100', '4090'
+```
 
 ### CUDA 版本不匹配
 
